@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 import { TextDecoder } from 'util';
@@ -9,6 +9,7 @@ import { TextDecoder } from 'util';
 const bucketName = process.env.FILE_BUCKET_NAME;
 const tableName = process.env.FILE_METADATA_TABLE;
 const defaultExpirationSeconds = parseInt(process.env.DEFAULT_URL_EXPIRATION ?? '3600', 10);
+const uploadedByIndexName = 'uploadedByIndex';
 
 if (!bucketName || !tableName) {
   throw new Error('Required environment variables FILE_BUCKET_NAME or FILE_METADATA_TABLE are not set');
@@ -110,6 +111,19 @@ function failure(message: string, statusCode = 400): APIGatewayProxyResult {
 }
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  const method = event.httpMethod?.toUpperCase();
+
+  switch (method) {
+    case 'GET':
+      return handleList(event);
+    case 'POST':
+      return handleUpload(event);
+    default:
+      return failure('Method not allowed', 405);
+  }
+};
+
+async function handleUpload(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   let payload: UploadPayload;
 
   try {
@@ -215,4 +229,41 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     url: presignedUrl,
     urlExpiration: item.urlExpiration,
   });
-};
+}
+
+async function handleList(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  let uploadedBy: string;
+  try {
+    uploadedBy = ensureNonEmpty(event.queryStringParameters?.uploadedBy, 'uploadedBy');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    return failure(message, 400);
+  }
+
+  try {
+    const result = await dynamo.send(
+      new QueryCommand({
+        TableName: tableName,
+        IndexName: uploadedByIndexName,
+        KeyConditionExpression: '#uploadedBy = :uploadedBy',
+        ExpressionAttributeNames: {
+          '#uploadedBy': 'uploadedBy',
+        },
+        ExpressionAttributeValues: {
+          ':uploadedBy': uploadedBy,
+        },
+        ScanIndexForward: false,
+      })
+    );
+
+    return success(
+      {
+        items: result.Items ?? [],
+      },
+      200
+    );
+  } catch (error) {
+    console.error('Failed to query DynamoDB for uploadedBy', error);
+    return failure('Failed to fetch entries', 500);
+  }
+}

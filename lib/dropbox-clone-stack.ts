@@ -55,6 +55,12 @@ export class DropboxCloneStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
+    table.addGlobalSecondaryIndex({
+      indexName: 'uploadedByIndex',
+      partitionKey: { name: 'uploadedBy', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     const lambdaAssetPath = path.join(__dirname, '..', 'lambda', 'upload-handler', 'dist');
 
     const lambdaFunction = new lambda.Function(this, 'FileUploadHandler', {
@@ -76,7 +82,7 @@ export class DropboxCloneStack extends cdk.Stack {
 
     bucket.grantPut(lambdaFunction);
     bucket.grantRead(lambdaFunction);
-    table.grantWriteData(lambdaFunction);
+    table.grantReadWriteData(lambdaFunction);
 
     lambdaFunction.addToRolePolicy(
       new iam.PolicyStatement({
@@ -91,12 +97,13 @@ export class DropboxCloneStack extends cdk.Stack {
       restApiName: 'DropboxCloneApi',
       defaultCorsPreflightOptions: {
         allowOrigins: apigw.Cors.ALL_ORIGINS,
-        allowMethods: ['POST'],
+        allowMethods: ['POST', 'GET'],
       },
     });
 
     const uploadResource = api.root.addResource('upload');
     uploadResource.addMethod('POST');
+    uploadResource.addMethod('GET');
 
     new cdk.CfnOutput(this, 'BucketName', {
       value: bucket.bucketName,
