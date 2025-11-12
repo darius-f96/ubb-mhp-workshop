@@ -32,6 +32,31 @@ Response body (JSON):
 }
 ```
 
+`GET /upload?uploadedBy=<email>`
+
+Query string parameters:
+
+- `uploadedBy` (required): The user identifier or email address used when uploading files. The Lambda queries DynamoDB using this value and only returns items owned by that user.
+
+Response body (JSON):
+
+```json
+{
+  "items": [
+    {
+      "fileId": "<uuid>",
+      "fileName": "report.pdf",
+      "uploadedBy": "alice@example.com",
+      "uploadedDate": "2024-05-15T12:00:00.000Z",
+      "s3Path": "uploads/<uuid>/report.pdf",
+      "url": "<pre-signed download url>",
+      "urlExpiration": "2024-05-15T13:00:00.000Z",
+      "urlExpirationEpoch": 1715778000
+    }
+  ]
+}
+```
+
 ## Project Structure
 
 - `lambda/upload-handler.ts` – Lambda handler that validates requests, uploads files to S3, generates pre-signed URLs, and stores metadata in DynamoDB.
@@ -55,13 +80,13 @@ Response body (JSON):
 3. Bootstrap your AWS environment if this is your first CDK deployment:
 
    ```bash
-   npx cdk bootstrap
+   cdk bootstrap
    ```
 
 4. Deploy the stack:
 
    ```bash
-   npx cdk deploy
+   cdk deploy
    ```
 
 After deployment the command output will contain the API Gateway endpoint that can be used to invoke the `/upload` route.
