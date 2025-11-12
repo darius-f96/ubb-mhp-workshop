@@ -1,0 +1,16 @@
+# Python artifacts
+__pycache__/
+*.pyc
+
+# Environment files
+.env
+
+# CDK build outputs
+cdk/.venv/
+cdk/cdk.out/
+cdk/dist/
+cdk/.cdk.staging/
+
+# Node.js dependencies
+node_modules/
+cdk/node_modules/
