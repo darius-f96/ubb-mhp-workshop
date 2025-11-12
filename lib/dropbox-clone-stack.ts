@@ -5,12 +5,39 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as apigw from 'aws-cdk-lib/aws-apigateway';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { Runtime } from 'aws-cdk-lib/aws-lambda';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
 
 export class DropboxCloneStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    cdk.Tags.of(this).add('MHPUBBWorkshop', 'November-2025');
+
+    const vpc = new ec2.Vpc(this, 'DropboxCloneVpc', {
+      maxAzs: 2,
+      natGateways: 0,
+      subnetConfiguration: [
+        {
+          name: 'PrivateSubnet',
+          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+        },
+      ],
+    });
+
+    vpc.addGatewayEndpoint('S3Endpoint', {
+      service: ec2.GatewayVpcEndpointAwsService.S3,
+    });
+
+    vpc.addGatewayEndpoint('DynamoEndpoint', {
+      service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
+    });
+
+    const lambdaSecurityGroup = new ec2.SecurityGroup(this, 'LambdaSecurityGroup', {
+      vpc,
+      description: 'Security group for Lambda inside the private subnet',
+      allowAllOutbound: true,
+    });
 
     const bucket = new s3.Bucket(this, 'FileBucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -28,22 +55,23 @@ export class DropboxCloneStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
-    const lambdaEntry = path.join(__dirname, '..', '..', 'lambda', 'upload-handler.ts');
+    const lambdaAssetPath = path.join(__dirname, '..', 'lambda', 'upload-handler', 'dist');
 
-    const lambdaFunction = new NodejsFunction(this, 'FileUploadHandler', {
-      entry: lambdaEntry,
-      handler: 'handler',
-      runtime: Runtime.NODEJS_18_X,
+    const lambdaFunction = new lambda.Function(this, 'FileUploadHandler', {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'upload-handler.handler',
+      code: lambda.Code.fromAsset(lambdaAssetPath),
       timeout: cdk.Duration.seconds(30),
-      bundling: {
-        target: 'es2021',
-        keepNames: true,
-      },
       environment: {
         FILE_BUCKET_NAME: bucket.bucketName,
         FILE_METADATA_TABLE: table.tableName,
         DEFAULT_URL_EXPIRATION: '3600',
       },
+      vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+      },
+      securityGroups: [lambdaSecurityGroup],
     });
 
     bucket.grantPut(lambdaFunction);
