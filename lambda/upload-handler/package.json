@@ -1,0 +1,20 @@
+{
+  "name": "upload-handler-lambda",
+  "version": "1.0.0",
+  "description": "Lambda function to upload files to S3 bucket",
+  "main": "upload-handler.js",
+  "scripts": {
+    "build": "esbuild ./upload-handler.ts --bundle --minify --platform=node --target=node20 --outdir=dist"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.0.0",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.6.6",
+    "esbuild": "^0.25.5",
+    "typescript": "^5.1.6"
+  }
+}

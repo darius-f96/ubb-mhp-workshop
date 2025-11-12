@@ -1,0 +1,265 @@
+{
+  "version": "36.0.0",
+  "artifacts": {
+    "DropboxCloneStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "DropboxCloneStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "DropboxCloneStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://930295948213/eu-west-1",
+      "properties": {
+        "templateFile": "DropboxCloneStack.template.json",
+        "terminationProtection": false,
+        "tags": {
+          "MHPUBBWorkshop": "November-2025"
+        },
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::930295948213:role/cdk-hnb659fds-deploy-role-930295948213-eu-west-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::930295948213:role/cdk-hnb659fds-cfn-exec-role-930295948213-eu-west-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-930295948213-eu-west-1/3f23545d2ffd750ad911eab85eb9c5a9f540a19f100147050e2081060c08705d.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "DropboxCloneStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::930295948213:role/cdk-hnb659fds-lookup-role-930295948213-eu-west-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "DropboxCloneStack.assets"
+      ],
+      "metadata": {
+        "/DropboxCloneStack": [
+          {
+            "type": "aws:cdk:stack-tags",
+            "data": [
+              {
+                "Key": "MHPUBBWorkshop",
+                "Value": "November-2025"
+              }
+            ]
+          }
+        ],
+        "/DropboxCloneStack/DropboxCloneVpc/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DropboxCloneVpc9A4D2EA6"
+          }
+        ],
+        "/DropboxCloneStack/DropboxCloneVpc/PrivateSubnetSubnet1/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DropboxCloneVpcPrivateSubnetSubnet1Subnet64DF587F"
+          }
+        ],
+        "/DropboxCloneStack/DropboxCloneVpc/PrivateSubnetSubnet1/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DropboxCloneVpcPrivateSubnetSubnet1RouteTable806557BA"
+          }
+        ],
+        "/DropboxCloneStack/DropboxCloneVpc/PrivateSubnetSubnet1/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DropboxCloneVpcPrivateSubnetSubnet1RouteTableAssociationB2D78418"
+          }
+        ],
+        "/DropboxCloneStack/DropboxCloneVpc/PrivateSubnetSubnet2/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DropboxCloneVpcPrivateSubnetSubnet2SubnetA2F42FC1"
+          }
+        ],
+        "/DropboxCloneStack/DropboxCloneVpc/PrivateSubnetSubnet2/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DropboxCloneVpcPrivateSubnetSubnet2RouteTable15D1349B"
+          }
+        ],
+        "/DropboxCloneStack/DropboxCloneVpc/PrivateSubnetSubnet2/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DropboxCloneVpcPrivateSubnetSubnet2RouteTableAssociationBD6B301F"
+          }
+        ],
+        "/DropboxCloneStack/DropboxCloneVpc/S3Endpoint/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DropboxCloneVpcS3Endpoint3D2D15E1"
+          }
+        ],
+        "/DropboxCloneStack/DropboxCloneVpc/DynamoEndpoint/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DropboxCloneVpcDynamoEndpoint384D2EC0"
+          }
+        ],
+        "/DropboxCloneStack/LambdaSecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaSecurityGroup0BD9FC99"
+          }
+        ],
+        "/DropboxCloneStack/FileBucket/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileBucketCDFCD6DE"
+          }
+        ],
+        "/DropboxCloneStack/FileBucket/Policy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileBucketPolicyE2A93A66"
+          }
+        ],
+        "/DropboxCloneStack/FileMetadataTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileMetadataTableE69EBE66"
+          }
+        ],
+        "/DropboxCloneStack/FileUploadHandler/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileUploadHandlerServiceRoleB44AF873"
+          }
+        ],
+        "/DropboxCloneStack/FileUploadHandler/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileUploadHandlerServiceRoleDefaultPolicy20DC71F6"
+          }
+        ],
+        "/DropboxCloneStack/FileUploadHandler/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileUploadHandler6E51A0CB"
+          }
+        ],
+        "/DropboxCloneStack/FileUploadApi/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileUploadApiAF719C21"
+          }
+        ],
+        "/DropboxCloneStack/FileUploadApi/CloudWatchRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileUploadApiCloudWatchRole604D67EC"
+          }
+        ],
+        "/DropboxCloneStack/FileUploadApi/Account": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileUploadApiAccount46713139"
+          }
+        ],
+        "/DropboxCloneStack/FileUploadApi/Deployment/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileUploadApiDeployment1DF15B33dce22414ec9476e24983c9bca7f19031"
+          }
+        ],
+        "/DropboxCloneStack/FileUploadApi/DeploymentStage.prod/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileUploadApiDeploymentStageprodBBFEA435"
+          }
+        ],
+        "/DropboxCloneStack/FileUploadApi/Endpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileUploadApiEndpoint576839AA"
+          }
+        ],
+        "/DropboxCloneStack/FileUploadApi/Default/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileUploadApiOPTIONSE5570B37"
+          }
+        ],
+        "/DropboxCloneStack/FileUploadApi/Default/upload/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileUploadApiupload5680723D"
+          }
+        ],
+        "/DropboxCloneStack/FileUploadApi/Default/upload/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileUploadApiuploadOPTIONS07BA4C9F"
+          }
+        ],
+        "/DropboxCloneStack/FileUploadApi/Default/upload/POST/ApiPermission.DropboxCloneStackFileUploadApi9B4A8D1B.POST..upload": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileUploadApiuploadPOSTApiPermissionDropboxCloneStackFileUploadApi9B4A8D1BPOSTupload121F48C5"
+          }
+        ],
+        "/DropboxCloneStack/FileUploadApi/Default/upload/POST/ApiPermission.Test.DropboxCloneStackFileUploadApi9B4A8D1B.POST..upload": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileUploadApiuploadPOSTApiPermissionTestDropboxCloneStackFileUploadApi9B4A8D1BPOSTuploadC0EB0F71"
+          }
+        ],
+        "/DropboxCloneStack/FileUploadApi/Default/upload/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileUploadApiuploadPOSTA4822FF3"
+          }
+        ],
+        "/DropboxCloneStack/BucketName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BucketName"
+          }
+        ],
+        "/DropboxCloneStack/MetadataTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MetadataTableName"
+          }
+        ],
+        "/DropboxCloneStack/ApiUrl": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiUrl"
+          }
+        ],
+        "/DropboxCloneStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/DropboxCloneStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/DropboxCloneStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "DropboxCloneStack"
+    },
+    "Tree": {
+      "type": "cdk:tree",
+      "properties": {
+        "file": "tree.json"
+      }
+    }
+  }
+}
