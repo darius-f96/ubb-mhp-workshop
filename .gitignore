@@ -13,3 +13,4 @@ cdk/node_modules/
 
 # Lambda compile folders
 dist/
+.idea
