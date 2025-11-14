@@ -7,7 +7,9 @@ This repository contains a sample implementation of a serverless backend that ac
 
 ## Lambda API Contract
 
-`POST /upload` (default inline upload)  
+All endpoints are secured with an Amazon Cognito user pool authorizer backed by the existing `pv0cko` user pool (`eu-west-1_MnCKcVS5o`). Clients must include a valid `Authorization: Bearer <JWT>` header issued by this pool when invoking the API.
+
+`POST /upload` (default inline upload)
 `POST /upload?multipart=true` (generate a pre-signed multipart/form-data upload)
 
 Request body (JSON):
