@@ -87,7 +87,7 @@ export class DropboxCloneStack extends cdk.Stack {
 
     lambdaFunction.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['s3:GetObject'],
+        actions: ['s3:GetObject','s3:DeleteObject'],
         resources: [bucket.arnForObjects('*')],
       }),
     );
