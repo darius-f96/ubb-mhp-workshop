@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, QueryCommand, GetCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import { randomUUID } from 'crypto';
@@ -15,7 +15,7 @@ const baseHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*', //or a custom domain
   'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+  'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
 };
 
 if (!bucketName || !tableName) {
@@ -135,10 +135,78 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return handleList(event);
     case 'POST':
       return handleUpload(event);
+    case 'DELETE':
+      return handleDelete(event);
     default:
       return failure('Method not allowed', 405);
   }
 };
+
+async function handleDelete(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  let fileId: string;
+  try {
+    fileId = ensureNonEmpty(event.queryStringParameters?.fileId, 'fileId');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    return failure(message, 400);
+  }
+
+  let uploadedBy: string;
+  try {
+    uploadedBy = ensureNonEmpty(event.queryStringParameters?.uploadedBy, 'uploadedBy');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    return failure(message, 400);
+  }
+
+  let item: any;
+  try {
+    const result = await dynamo.send(
+      new GetCommand({
+        TableName: tableName,
+        Key: { fileId },
+      })
+    );
+    item = result.Item;
+  } catch (error) {
+    console.error('Failed to retrieve file metadata from DynamoDB', error);
+    return failure('Failed to fetch file metadata', 500);
+  }
+
+  if (!item) {
+    return failure('File not found', 404);
+  }
+
+  if (item.uploadedBy !== uploadedBy) {
+    return failure('Not authorized to delete this file', 403);
+  }
+
+  try {
+    await s3Client.send(
+      new DeleteObjectCommand({
+        Bucket: bucketName,
+        Key: item.s3Path,
+      })
+    );
+  } catch (error) {
+    console.error('Failed to delete file from S3', error);
+    return failure('Failed to delete file content', 500);
+  }
+
+  try {
+    await dynamo.send(
+      new DeleteCommand({
+        TableName: tableName,
+        Key: { fileId },
+      })
+    );
+  } catch (error) {
+    console.error('Failed to delete file metadata from DynamoDB', error);
+    return failure('Failed to delete metadata', 500);
+  }
+
+  return success({ message: 'File deleted successfully' }, 200);
+}
 
 async function handleUpload(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const multipartUpload = isMultipartRequest(event);

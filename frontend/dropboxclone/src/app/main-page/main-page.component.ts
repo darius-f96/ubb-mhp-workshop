@@ -23,6 +23,7 @@ export class MainPageComponent implements OnInit {
   files = signal<FileItem[]>([]);
   loadingFiles = signal<boolean>(false);
   filesError = signal<string | null>(null);
+  deletingFiles = signal<Set<string>>(new Set());
 
   ngOnInit() {
     const claims = this.oauthService.getIdentityClaims() as any;
@@ -122,6 +123,42 @@ export class MainPageComponent implements OnInit {
   refreshFileUrl(file: FileItem) {
     // Refresh the file list to get new pre-signed URLs
     this.loadFiles();
+  }
+
+  deleteFile(file: FileItem) {
+    const email = this.userEmail();
+    if (!email || this.isDeleting(file.fileId)) {
+      return;
+    }
+
+    this.filesError.set(null);
+    const updatedDeleting = new Set(this.deletingFiles());
+    updatedDeleting.add(file.fileId);
+    this.deletingFiles.set(updatedDeleting);
+
+    const removeFromDeleting = () => {
+      const current = new Set(this.deletingFiles());
+      current.delete(file.fileId);
+      this.deletingFiles.set(current);
+    };
+
+    this.uploadService.deleteFile(file.fileId, email).subscribe({
+      next: () => {
+        this.files.update(items => items.filter(item => item.fileId !== file.fileId));
+      },
+      error: (error) => {
+        console.error('Failed to delete file:', error);
+        this.filesError.set(error.error?.message || 'Failed to delete the file. Please try again.');
+        removeFromDeleting();
+      },
+      complete: () => {
+        removeFromDeleting();
+      }
+    });
+  }
+
+  isDeleting(fileId: string): boolean {
+    return this.deletingFiles().has(fileId);
   }
 
   formatDate(dateString: string): string {
