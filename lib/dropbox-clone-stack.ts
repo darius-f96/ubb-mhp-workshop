@@ -4,6 +4,7 @@ import { Construct } from 'constructs';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as apigw from 'aws-cdk-lib/aws-apigateway';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
@@ -91,6 +92,20 @@ export class DropboxCloneStack extends cdk.Stack {
       }),
     );
 
+    const existingUserPoolArn =
+      'arn:aws:cognito-idp:eu-west-1:930295948213:userpool/eu-west-1_MnCKcVS5o';
+    const existingUserPoolId = 'eu-west-1_MnCKcVS5o';
+
+    const userPool = cognito.UserPool.fromUserPoolArn(
+      this,
+      'DropboxUserPool',
+      existingUserPoolArn,
+    );
+
+    const authorizer = new apigw.CognitoUserPoolsAuthorizer(this, 'DropboxApiAuthorizer', {
+      cognitoUserPools: [userPool],
+    });
+
     const api = new apigw.LambdaRestApi(this, 'FileUploadApi', {
       handler: lambdaFunction,
       proxy: false,
@@ -98,12 +113,21 @@ export class DropboxCloneStack extends cdk.Stack {
       defaultCorsPreflightOptions: {
         allowOrigins: apigw.Cors.ALL_ORIGINS,
         allowMethods: ['POST', 'GET'],
+        allowHeaders: ['Authorization', 'Content-Type'],
       },
     });
 
+    authorizer._attachToApi(api);
+
     const uploadResource = api.root.addResource('upload');
-    uploadResource.addMethod('POST');
-    uploadResource.addMethod('GET');
+    uploadResource.addMethod('POST', undefined, {
+      authorizationType: apigw.AuthorizationType.COGNITO,
+      authorizer,
+    });
+    uploadResource.addMethod('GET', undefined, {
+      authorizationType: apigw.AuthorizationType.COGNITO,
+      authorizer,
+    });
 
     new cdk.CfnOutput(this, 'BucketName', {
       value: bucket.bucketName,
@@ -116,5 +140,10 @@ export class DropboxCloneStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ApiUrl', {
       value: api.url ?? '',
     });
+
+    new cdk.CfnOutput(this, 'UserPoolId', {
+      value: existingUserPoolId,
+    });
+
   }
 }
