@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Observable, map } from 'rxjs';
 
 const API_URL = 'https://mdd8us3zk7.execute-api.eu-west-1.amazonaws.com/prod';
 
@@ -105,62 +105,48 @@ export class FileUploadService {
       // First, get the pre-signed POST URL from the backend
       this.http.post<MultipartUploadResponse>(`${API_URL}/upload?multipart=true`, uploadRequest)
         .subscribe({
-          next: (response) => {
-            // Create a hidden form to upload to S3 (avoids CORS preflight)
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = response.upload.url;
-            form.enctype = 'multipart/form-data';
-            form.style.display = 'none';
+          next: (response: MultipartUploadResponse) => {
+            // Upload the file directly to S3 using the pre-signed POST
+            const formData = new FormData();
 
-            // Add all the fields from the response
+            // Add all the fields from the response in the correct order
             Object.keys(response.upload.fields).forEach(key => {
-              const input = document.createElement('input');
-              input.type = 'hidden';
-              input.name = key;
-              input.value = response.upload.fields[key];
-              form.appendChild(input);
+              formData.append(key, response.upload.fields[key]);
             });
 
-            // Add the file
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.name = 'file';
-            fileInput.style.display = 'none';
+            // Add the file last
+            formData.append('file', file);
 
-            // Create a DataTransfer to set the file
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            fileInput.files = dataTransfer.files;
-            form.appendChild(fileInput);
-
-            // Create an iframe to submit the form without page reload
-            const iframe = document.createElement('iframe');
-            iframe.name = 'upload-iframe-' + Date.now();
-            iframe.style.display = 'none';
-            document.body.appendChild(iframe);
-
-            form.target = iframe.name;
-            document.body.appendChild(form);
-
-            // Listen for iframe load (upload complete)
-            iframe.onload = () => {
-              // Clean up
-              document.body.removeChild(form);
-              document.body.removeChild(iframe);
-
-              // Return the download URL info after successful upload
-              observer.next({
-                fileId: response.fileId,
-                s3Path: response.s3Path,
-                url: response.url,
-                urlExpiration: response.urlExpiration
-              });
-              observer.complete();
-            };
-
-            // Submit the form
-            form.submit();
+            // Upload to S3
+            this.http.post(response.upload.url, formData, {
+              responseType: 'text',
+              observe: 'response'
+            }).subscribe({
+              next: () => {
+                // Return the download URL info after successful upload
+                observer.next({
+                  fileId: response.fileId,
+                  s3Path: response.s3Path,
+                  url: response.url,
+                  urlExpiration: response.urlExpiration
+                });
+                observer.complete();
+              },
+              error: (error) => {
+                // S3 might return 204 which some browsers treat as an error
+                if (error.status === 204 || error.status === 0) {
+                  observer.next({
+                    fileId: response.fileId,
+                    s3Path: response.s3Path,
+                    url: response.url,
+                    urlExpiration: response.urlExpiration
+                  });
+                  observer.complete();
+                } else {
+                  observer.error(error);
+                }
+              }
+            });
           },
           error: (error) => observer.error(error)
         });

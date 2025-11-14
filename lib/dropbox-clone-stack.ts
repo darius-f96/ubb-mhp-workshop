@@ -1,8 +1,9 @@
 import * as path from 'path';
 import * as cdk from 'aws-cdk-lib';
-import { Construct } from 'constructs';
+import {Construct} from 'constructs';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import {HttpMethods} from 'aws-cdk-lib/aws-s3';
 import * as apigw from 'aws-cdk-lib/aws-apigateway';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -47,6 +48,22 @@ export class DropboxCloneStack extends cdk.Stack {
       versioned: true,
       autoDeleteObjects: false,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
+      cors: [
+         {
+             allowedHeaders: [
+                 "*"
+             ],
+             allowedMethods: [
+                 HttpMethods.GET,
+                 HttpMethods.PUT,
+                 HttpMethods.POST
+             ],
+             allowedOrigins: [
+                 "*"
+             ],
+             exposedHeaders: []
+         }
+        ]
     });
 
     const table = new dynamodb.Table(this, 'FileMetadataTable', {
