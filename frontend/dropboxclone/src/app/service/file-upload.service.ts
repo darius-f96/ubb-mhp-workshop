@@ -6,7 +6,7 @@ const API_URL = 'https://mdd8us3zk7.execute-api.eu-west-1.amazonaws.com/prod';
 
 export interface UploadRequest {
   fileName: string;
-  fileContent: string;
+  fileContent?: string;  // Optional when using multipart
   uploadedBy: string;
   contentType?: string;
   expirationSeconds?: number;
@@ -15,6 +15,20 @@ export interface UploadRequest {
 export interface UploadResponse {
   fileId: string;
   s3Path: string;
+  url: string;
+  urlExpiration: string;
+}
+
+export interface MultipartUploadResponse {
+  fileId: string;
+  s3Path: string;
+  upload: {
+    url: string;
+    fields: {
+      [key: string]: string;
+    };
+    expiresIn: number;
+  };
   url: string;
   urlExpiration: string;
 }
@@ -41,6 +55,12 @@ export class FileUploadService {
   private readonly http = inject(HttpClient);
 
   uploadFile(file: File, uploadedBy: string): Observable<UploadResponse> {
+    // Check if file is larger than 9MB (use multipart upload)
+    const nineMB = 9 * 1024 * 1024;
+    if (file.size > nineMB) {
+      return this.uploadFileMultipart(file, uploadedBy);
+    }
+
     return new Observable<UploadResponse>((observer) => {
       const reader = new FileReader();
 
@@ -70,6 +90,72 @@ export class FileUploadService {
       };
 
       reader.readAsDataURL(file);
+    });
+  }
+
+  private uploadFileMultipart(file: File, uploadedBy: string): Observable<UploadResponse> {
+    return new Observable<UploadResponse>((observer) => {
+      const uploadRequest: UploadRequest = {
+        fileName: file.name,
+        uploadedBy: uploadedBy,
+        contentType: file.type || 'application/octet-stream',
+        expirationSeconds: 3600
+      };
+
+      // First, get the pre-signed POST URL from the backend
+      this.http.post<MultipartUploadResponse>(`${API_URL}/upload?multipart=true`, uploadRequest)
+        .subscribe({
+          next: (response) => {
+            // Upload the file directly to S3 using the pre-signed POST
+            const formData = new FormData();
+
+            // Add all the fields from the response
+            Object.keys(response.upload.fields).forEach(key => {
+              formData.append(key, response.upload.fields[key]);
+            });
+
+            // Add the file last
+            formData.append('file', file);
+
+            // Upload to S3 (S3 returns 204 No Content, we don't need to read the response)
+            // Using observe: 'events' to avoid CORS issues with reading the response body
+            this.http.post(response.upload.url, formData, {
+              responseType: 'text',
+              observe: 'events',
+              reportProgress: true
+            }).subscribe({
+              next: (event) => {
+                // We only care about completion, not the response content
+                if (event.type === 4) { // HttpEventType.Response
+                  // Return the download URL info after successful upload
+                  observer.next({
+                    fileId: response.fileId,
+                    s3Path: response.s3Path,
+                    url: response.url,
+                    urlExpiration: response.urlExpiration
+                  });
+                  observer.complete();
+                }
+              },
+              error: (error) => {
+                // Check if it's a 204 response being treated as an error
+                if (error.status === 204 || error.status === 0) {
+                  // Treat 204 or CORS-blocked 204 as success
+                  observer.next({
+                    fileId: response.fileId,
+                    s3Path: response.s3Path,
+                    url: response.url,
+                    urlExpiration: response.urlExpiration
+                  });
+                  observer.complete();
+                } else {
+                  observer.error(error);
+                }
+              }
+            });
+          },
+          error: (error) => observer.error(error)
+        });
     });
   }
 
