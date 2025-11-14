@@ -11,6 +11,12 @@ const bucketName = process.env.FILE_BUCKET_NAME;
 const tableName = process.env.FILE_METADATA_TABLE;
 const defaultExpirationSeconds = parseInt(process.env.DEFAULT_URL_EXPIRATION ?? '3600', 10);
 const uploadedByIndexName = 'uploadedByIndex';
+const baseHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*', //or a custom domain
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+};
 
 if (!bucketName || !tableName) {
   throw new Error('Required environment variables FILE_BUCKET_NAME or FILE_METADATA_TABLE are not set');
@@ -100,7 +106,7 @@ function ensureNonEmpty(value: unknown, field: string): string {
 function success(body: Record<string, unknown>, statusCode = 201): APIGatewayProxyResult {
   return {
     statusCode,
-    headers: { 'Content-Type': 'application/json' },
+    headers: baseHeaders,
     body: JSON.stringify(body),
   };
 }
@@ -108,7 +114,7 @@ function success(body: Record<string, unknown>, statusCode = 201): APIGatewayPro
 function failure(message: string, statusCode = 400): APIGatewayProxyResult {
   return {
     statusCode,
-    headers: { 'Content-Type': 'application/json' },
+    headers: baseHeaders,
     body: JSON.stringify({ message }),
   };
 }
