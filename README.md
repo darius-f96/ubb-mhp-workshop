@@ -7,7 +7,8 @@ This repository contains a sample implementation of a serverless backend that ac
 
 ## Lambda API Contract
 
-`POST /upload`
+`POST /upload` (default inline upload)  
+`POST /upload?multipart=true` (generate a pre-signed multipart/form-data upload)
 
 Request body (JSON):
 
@@ -32,6 +33,41 @@ Response body (JSON):
 }
 ```
 
+When `multipart=true` is passed as a query parameter the Lambda will skip the inline upload. Instead, it returns a pre-signed POST URL that can be used to upload the file directly to S3 using `multipart/form-data`. In this mode the `fileContent` field is not required.
+
+```json
+{
+  "fileName": "report.pdf",
+  "uploadedBy": "alice@example.com",
+  "contentType": "application/pdf",
+  "expirationSeconds": 3600
+}
+```
+
+The response additionally includes the data needed to complete the browser upload:
+
+```json
+{
+  "fileId": "<generated uuid>",
+  "s3Path": "uploads/<uuid>/report.pdf",
+  "upload": {
+    "url": "<pre-signed POST endpoint>",
+    "fields": {
+      "Content-Type": "application/pdf",
+      "key": "uploads/<uuid>/report.pdf",
+      "policy": "...",
+      "x-amz-algorithm": "...",
+      "x-amz-credential": "...",
+      "x-amz-date": "...",
+      "x-amz-signature": "..."
+    },
+    "expiresIn": 3600
+  },
+  "url": "<pre-signed download url>",
+  "urlExpiration": "2024-05-15T12:34:56.000Z"
+}
+```
+
 `GET /upload?uploadedBy=<email>`
 
 Query string parameters:
@@ -51,7 +87,8 @@ Response body (JSON):
       "s3Path": "uploads/<uuid>/report.pdf",
       "url": "<pre-signed download url>",
       "urlExpiration": "2024-05-15T13:00:00.000Z",
-      "urlExpirationEpoch": 1715778000
+      "urlExpirationEpoch": 1715778000,
+      "uploadMode": "inline"
     }
   ]
 }
