@@ -3,6 +3,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import { randomUUID } from 'crypto';
 import { TextDecoder } from 'util';
 
@@ -25,11 +26,13 @@ const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
 
 interface UploadPayload {
   fileName: string;
-  fileContent: string;
+  fileContent?: string;
   uploadedBy: string;
   contentType?: string;
   expirationSeconds?: number;
 }
+
+type UploadMode = 'inline' | 'presigned-post';
 
 const jsonDecoder = new TextDecoder('utf-8');
 
@@ -110,6 +113,14 @@ function failure(message: string, statusCode = 400): APIGatewayProxyResult {
   };
 }
 
+function isMultipartRequest(event: APIGatewayProxyEvent): boolean {
+  const flag = event.queryStringParameters?.multipart;
+  if (typeof flag !== 'string') {
+    return false;
+  }
+  return flag.toLowerCase() === 'true';
+}
+
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const method = event.httpMethod?.toUpperCase();
 
@@ -124,6 +135,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 };
 
 async function handleUpload(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const multipartUpload = isMultipartRequest(event);
   let payload: UploadPayload;
 
   try {
@@ -144,19 +156,21 @@ async function handleUpload(event: APIGatewayProxyEvent): Promise<APIGatewayProx
     return failure(message, 400);
   }
 
-  let base64Content: string;
-  try {
-    base64Content = normalizeBase64(payload.fileContent);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'fileContent must be valid base64';
-    return failure(message, 400);
-  }
+  let fileBytes: Buffer | undefined;
+  if (!multipartUpload) {
+    let base64Content: string;
+    try {
+      base64Content = normalizeBase64(payload.fileContent);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'fileContent must be valid base64';
+      return failure(message, 400);
+    }
 
-  let fileBytes: Buffer;
-  try {
-    fileBytes = Buffer.from(base64Content, 'base64');
-  } catch (error) {
-    return failure('fileContent must be valid base64', 400);
+    try {
+      fileBytes = Buffer.from(base64Content, 'base64');
+    } catch (error) {
+      return failure('fileContent must be valid base64', 400);
+    }
   }
 
   let expirationSeconds: number;
@@ -170,6 +184,43 @@ async function handleUpload(event: APIGatewayProxyEvent): Promise<APIGatewayProx
   const fileId = randomUUID();
   const s3Key = `uploads/${fileId}/${fileName}`;
   const contentType = payload.contentType?.trim() || 'application/octet-stream';
+
+  if (multipartUpload) {
+    return handleMultipartUpload({
+      fileId,
+      fileName,
+      uploadedBy,
+      s3Key,
+      contentType,
+      expirationSeconds,
+    });
+  }
+
+  if (!fileBytes) {
+    return failure('fileContent must be provided', 400);
+  }
+
+  return handleInlineUpload({
+    fileId,
+    fileName,
+    uploadedBy,
+    s3Key,
+    fileBytes,
+    contentType,
+    expirationSeconds,
+  });
+}
+
+async function handleInlineUpload(params: {
+  fileId: string;
+  fileName: string;
+  uploadedBy: string;
+  s3Key: string;
+  fileBytes: Buffer;
+  contentType: string;
+  expirationSeconds: number;
+}): Promise<APIGatewayProxyResult> {
+  const { fileId, fileName, uploadedBy, s3Key, fileBytes, contentType, expirationSeconds } = params;
 
   try {
     await s3Client.send(
@@ -185,12 +236,9 @@ async function handleUpload(event: APIGatewayProxyEvent): Promise<APIGatewayProx
     return failure('Failed to store file', 500);
   }
 
-  const uploadedDate = new Date();
-  const expiresAt = new Date(uploadedDate.getTime() + expirationSeconds * 1000);
-
-  let presignedUrl: string;
+  let downloadUrl: string;
   try {
-    presignedUrl = await getSignedUrl(
+    downloadUrl = await getSignedUrl(
       s3Client,
       new GetObjectCommand({ Bucket: bucketName, Key: s3Key }),
       { expiresIn: expirationSeconds }
@@ -200,24 +248,17 @@ async function handleUpload(event: APIGatewayProxyEvent): Promise<APIGatewayProx
     return failure('Failed to generate download URL', 500);
   }
 
-  const item = {
-    fileId,
-    fileName,
-    uploadedBy,
-    uploadedDate: uploadedDate.toISOString(),
-    s3Path: s3Key,
-    url: presignedUrl,
-    urlExpiration: expiresAt.toISOString(),
-    urlExpirationEpoch: Math.floor(expiresAt.getTime() / 1000),
-  };
-
+  let item;
   try {
-    await dynamo.send(
-      new PutCommand({
-        TableName: tableName,
-        Item: item,
-      })
-    );
+    item = await persistMetadata({
+      fileId,
+      fileName,
+      uploadedBy,
+      s3Key,
+      downloadUrl,
+      expirationSeconds,
+      uploadMode: 'inline',
+    });
   } catch (error) {
     console.error('Failed to write metadata to DynamoDB', error);
     return failure('Failed to store metadata', 500);
@@ -226,9 +267,113 @@ async function handleUpload(event: APIGatewayProxyEvent): Promise<APIGatewayProx
   return success({
     fileId,
     s3Path: s3Key,
-    url: presignedUrl,
+    url: downloadUrl,
     urlExpiration: item.urlExpiration,
   });
+}
+
+async function handleMultipartUpload(params: {
+  fileId: string;
+  fileName: string;
+  uploadedBy: string;
+  s3Key: string;
+  contentType: string;
+  expirationSeconds: number;
+}): Promise<APIGatewayProxyResult> {
+  const { fileId, fileName, uploadedBy, s3Key, contentType, expirationSeconds } = params;
+  const uploadUrlExpirationSeconds = Math.min(expirationSeconds, 3600);
+
+  let presignedPost;
+  try {
+    presignedPost = await createPresignedPost(s3Client, {
+      Bucket: bucketName,
+      Key: s3Key,
+      Expires: uploadUrlExpirationSeconds,
+      Fields: {
+        key: s3Key,
+        'Content-Type': contentType,
+      },
+    });
+  } catch (error) {
+    console.error('Failed to generate multipart upload URL', error);
+    return failure('Failed to generate upload URL', 500);
+  }
+
+  let downloadUrl: string;
+  try {
+    downloadUrl = await getSignedUrl(
+      s3Client,
+      new GetObjectCommand({ Bucket: bucketName, Key: s3Key }),
+      { expiresIn: expirationSeconds }
+    );
+  } catch (error) {
+    console.error('Failed to generate pre-signed URL', error);
+    return failure('Failed to generate download URL', 500);
+  }
+
+  let item;
+  try {
+    item = await persistMetadata({
+      fileId,
+      fileName,
+      uploadedBy,
+      s3Key,
+      downloadUrl,
+      expirationSeconds,
+      uploadMode: 'presigned-post',
+    });
+  } catch (error) {
+    console.error('Failed to write metadata to DynamoDB', error);
+    return failure('Failed to store metadata', 500);
+  }
+
+  return success({
+    fileId,
+    s3Path: s3Key,
+    upload: {
+      url: presignedPost.url,
+      fields: presignedPost.fields,
+      expiresIn: uploadUrlExpirationSeconds,
+    },
+    url: downloadUrl,
+    urlExpiration: item.urlExpiration,
+  });
+}
+
+async function persistMetadata(params: {
+  fileId: string;
+  fileName: string;
+  uploadedBy: string;
+  s3Key: string;
+  downloadUrl: string;
+  expirationSeconds: number;
+  uploadMode: UploadMode;
+}) {
+  const { fileId, fileName, uploadedBy, s3Key, downloadUrl, expirationSeconds, uploadMode } = params;
+
+  const uploadedDate = new Date();
+  const expiresAt = new Date(uploadedDate.getTime() + expirationSeconds * 1000);
+
+  const item = {
+    fileId,
+    fileName,
+    uploadedBy,
+    uploadedDate: uploadedDate.toISOString(),
+    s3Path: s3Key,
+    url: downloadUrl,
+    urlExpiration: expiresAt.toISOString(),
+    urlExpirationEpoch: Math.floor(expiresAt.getTime() / 1000),
+    uploadMode,
+  };
+
+  await dynamo.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: item,
+    })
+  );
+
+  return item;
 }
 
 async function handleList(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
