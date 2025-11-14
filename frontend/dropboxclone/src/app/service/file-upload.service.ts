@@ -106,53 +106,61 @@ export class FileUploadService {
       this.http.post<MultipartUploadResponse>(`${API_URL}/upload?multipart=true`, uploadRequest)
         .subscribe({
           next: (response) => {
-            // Upload the file directly to S3 using the pre-signed POST
-            const formData = new FormData();
+            // Create a hidden form to upload to S3 (avoids CORS preflight)
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = response.upload.url;
+            form.enctype = 'multipart/form-data';
+            form.style.display = 'none';
 
             // Add all the fields from the response
             Object.keys(response.upload.fields).forEach(key => {
-              formData.append(key, response.upload.fields[key]);
+              const input = document.createElement('input');
+              input.type = 'hidden';
+              input.name = key;
+              input.value = response.upload.fields[key];
+              form.appendChild(input);
             });
 
-            // Add the file last
-            formData.append('file', file);
+            // Add the file
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.name = 'file';
+            fileInput.style.display = 'none';
 
-            // Upload to S3 (S3 returns 204 No Content, we don't need to read the response)
-            // Using observe: 'events' to avoid CORS issues with reading the response body
-            this.http.post(response.upload.url, formData, {
-              responseType: 'text',
-              observe: 'events',
-              reportProgress: true
-            }).subscribe({
-              next: (event) => {
-                // We only care about completion, not the response content
-                if (event.type === 4) { // HttpEventType.Response
-                  // Return the download URL info after successful upload
-                  observer.next({
-                    fileId: response.fileId,
-                    s3Path: response.s3Path,
-                    url: response.url,
-                    urlExpiration: response.urlExpiration
-                  });
-                  observer.complete();
-                }
-              },
-              error: (error) => {
-                // Check if it's a 204 response being treated as an error
-                if (error.status === 204 || error.status === 0) {
-                  // Treat 204 or CORS-blocked 204 as success
-                  observer.next({
-                    fileId: response.fileId,
-                    s3Path: response.s3Path,
-                    url: response.url,
-                    urlExpiration: response.urlExpiration
-                  });
-                  observer.complete();
-                } else {
-                  observer.error(error);
-                }
-              }
-            });
+            // Create a DataTransfer to set the file
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+            form.appendChild(fileInput);
+
+            // Create an iframe to submit the form without page reload
+            const iframe = document.createElement('iframe');
+            iframe.name = 'upload-iframe-' + Date.now();
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+
+            form.target = iframe.name;
+            document.body.appendChild(form);
+
+            // Listen for iframe load (upload complete)
+            iframe.onload = () => {
+              // Clean up
+              document.body.removeChild(form);
+              document.body.removeChild(iframe);
+
+              // Return the download URL info after successful upload
+              observer.next({
+                fileId: response.fileId,
+                s3Path: response.s3Path,
+                url: response.url,
+                urlExpiration: response.urlExpiration
+              });
+              observer.complete();
+            };
+
+            // Submit the form
+            form.submit();
           },
           error: (error) => observer.error(error)
         });
