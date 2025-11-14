@@ -48,6 +48,10 @@ export interface FileListResponse {
   items: FileItem[];
 }
 
+export interface DeleteFileResponse {
+  message: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -170,6 +174,12 @@ export class FileUploadService {
   getFiles(uploadedBy: string): Observable<FileListResponse> {
     return this.http.get<FileListResponse>(`${API_URL}/upload`, {
       params: { uploadedBy }
+    });
+  }
+
+  deleteFile(fileId: string, uploadedBy: string): Observable<DeleteFileResponse> {
+    return this.http.delete<DeleteFileResponse>(`${API_URL}/upload`, {
+      params: { fileId, uploadedBy }
     });
   }
 }

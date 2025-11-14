@@ -419,6 +419,27 @@
     }
   }
 
+  &.delete {
+    background: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
+    color: white;
+
+    &:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+    }
+  }
+
+  &:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+
+  .spinner {
+    width: 18px;
+    height: 18px;
+    animation: spin 1s linear infinite;
+  }
+
   &:active {
     transform: translateY(0);
   }

@@ -141,6 +141,24 @@
                     Download
                   </button>
                 }
+                <button
+                  class="action-button delete"
+                  (click)="deleteFile(file)"
+                  [disabled]="isDeleting(file.fileId)"
+                >
+                  @if (isDeleting(file.fileId)) {
+                    <svg class="spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Deleting...
+                  } @else {
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.108 1.022.169M19.228 5.79l-.32 9c-.073 2.063-1.784 3.71-3.848 3.71H8.94c-2.064 0-3.775-1.647-3.848-3.71l-.32-9m14.456 0a48.108 48.108 0 00-3.478-.397m3.478.397L5.772 5.79m0 0c.34-.061.68-.117 1.022-.169m0 0A48.11 48.11 0 0110.272 5.25m3.456 0c1.176.02 2.35.074 3.522.174" />
+                    </svg>
+                    Delete
+                  }
+                </button>
               </div>
             </div>
           }

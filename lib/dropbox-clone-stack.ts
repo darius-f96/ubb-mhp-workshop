@@ -112,7 +112,7 @@ export class DropboxCloneStack extends cdk.Stack {
       restApiName: 'DropboxCloneApi',
       defaultCorsPreflightOptions: {
         allowOrigins: apigw.Cors.ALL_ORIGINS,
-        allowMethods: ['POST', 'GET'],
+        allowMethods: ['POST', 'GET', 'DELETE'],
         allowHeaders: ['Authorization', 'Content-Type'],
       },
     });
@@ -125,6 +125,10 @@ export class DropboxCloneStack extends cdk.Stack {
       authorizer,
     });
     uploadResource.addMethod('GET', undefined, {
+      authorizationType: apigw.AuthorizationType.COGNITO,
+      authorizer,
+    });
+    uploadResource.addMethod('DELETE', undefined, {
       authorizationType: apigw.AuthorizationType.COGNITO,
       authorizer,
     });
