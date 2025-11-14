@@ -4,12 +4,17 @@ import { OAuthService } from 'angular-oauth2-oidc';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const oauthService = inject(OAuthService);
-  const accessToken = oauthService.getIdToken();
+  const idToken = oauthService.getIdToken();
 
-  if (accessToken) {
+  // Skip adding auth header for S3 requests (direct uploads)
+  if (req.url.includes('.s3.') || req.url.includes('//s3.') || req.url.includes('s3.amazonaws.com')) {
+    return next(req);
+  }
+
+  if (idToken) {
     const clonedRequest = req.clone({
       setHeaders: {
-        Authorization: `Bearer ${accessToken}`
+        Authorization: `Bearer ${idToken}`
       }
     });
     return next(clonedRequest);
@@ -17,4 +22,3 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(req);
 };
-
