@@ -4,7 +4,7 @@
   "description": "Lambda function to upload files to S3 bucket",
   "main": "upload-handler.js",
   "scripts": {
-    "build": "esbuild ./upload-handler.ts --bundle --minify --platform=node --target=node20 --outdir=dist"
+    "build": "esbuild ./upload-handler.ts --bundle --minify --platform=node --target=node22 --outdir=dist"
   },
   "license": "ISC",
   "dependencies": {
@@ -15,6 +15,11 @@
     "@types/node": "^20.0.0",
     "@types/pg": "^8.6.6",
     "esbuild": "^0.25.5",
-    "typescript": "^5.1.6"
+    "typescript": "^5.1.6",
+    "@aws-sdk/client-dynamodb": "^3.515.0",
+    "@aws-sdk/client-s3": "^3.515.0",
+    "@aws-sdk/lib-dynamodb": "^3.515.0",
+    "@aws-sdk/s3-presigned-post": "^3.515.0",
+    "@aws-sdk/s3-request-presigner": "^3.515.0"
   }
 }
