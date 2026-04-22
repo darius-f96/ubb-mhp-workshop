@@ -5,6 +5,7 @@ import { DropboxCloneStack } from '../lib/dropbox-clone-stack';
 import {DrClCdkConfig} from "../config/config";
 import {DevConfig} from "../config/dev.config";
 import {DropboxCloneFrontendStack} from "../lib/frontend/frontend-stack";
+import { HelloWorldStack } from '../lib/hello-world-stack';
 
 const configs: {[key: string]: DrClCdkConfig} = {
     "dev": new DevConfig()
@@ -14,6 +15,13 @@ const environment = process.env.ENVIRONMENT ?? "dev";
 
 const app = new cdk.App();
 new DropboxCloneStack(app, 'DropboxCloneStack', {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+});
+
+new HelloWorldStack(app, 'HelloWorldStack', {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,

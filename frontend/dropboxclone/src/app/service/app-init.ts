@@ -11,10 +11,10 @@ export class AppInit {
 
   initOidcConfig() {
     const authCodeFlowConfig: AuthConfig = {
-      issuer: 'https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_MnCKcVS5o',
+      issuer: 'https://cognito-idp.eu-west-1.amazonaws.com/<REPLACE_COGNITO_POOL>',
       strictDiscoveryDocumentValidation: false,
       redirectUri: window.location.origin,
-      clientId: '4smqb4qv2orq6kvr083c904rir',
+      clientId: 'client-id',
       responseType: 'code',
       scope: 'email openid phone',
       showDebugInformation: false,
